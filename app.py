@@ -25,7 +25,12 @@ def scan():
         is_calculating = True
         try:
             print("Scan thread started.", flush=True)
-            latest_results = calculator.run_scan()
+            
+            def update_results(partial_results):
+                global latest_results
+                latest_results = partial_results
+
+            latest_results = calculator.run_scan(progress_callback=update_results)
             print(f"Scan thread finished. Found {len(latest_results)} results.", flush=True)
         except Exception as e:
             import traceback
