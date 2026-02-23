@@ -182,12 +182,14 @@ class WarframeProfitCalculator:
             })
 
         profit = set_price - total_cost
+        trades = sum(comp['qty'] for comp in component_data) + 1
         
         return {
             'name': set_root_item['i18n']['en']['name'],
             'set_price': set_price,
             'cost': total_cost,
             'profit': profit,
+            'trades': trades,
             'components': component_data
         }
 
@@ -210,7 +212,8 @@ class WarframeProfitCalculator:
             if res and res['profit'] > 0:
                 results.append(res)
                 # Sort incrementally and call protocol
-                results.sort(key=lambda x: x['profit'], reverse=True)
+                # Sort by cost ascending
+                results.sort(key=lambda x: x['cost'])
                 if progress_callback:
                     # Provide a copy to avoid threading concurrency issues during JSON serialization
                     progress_callback(list(results))
