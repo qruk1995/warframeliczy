@@ -12,6 +12,12 @@ REQUEST_DELAY = 0.34  # ~3 requests per second
 class WarframeMarketAPI:
     def __init__(self):
         self.session = requests.Session()
+        # Dodajemy nagłówki, by udawać normalną przeglądarkę i uniknąć blokady bota
+        self.session.headers.update({
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+            'Platform': 'pc',
+            'Language': 'en'
+        })
         self.last_request_time = 0
         self.lock = Lock()
         self.item_cache = {} # Cache for item details (static data)
@@ -185,7 +191,7 @@ class WarframeProfitCalculator:
             'components': component_data
         }
 
-    def run_scan(self):
+    def run_scan(self, progress_callback=None):
         self.initialize_items()
         
         # Filter for Prime Sets
@@ -197,21 +203,16 @@ class WarframeProfitCalculator:
         print(f"Found {len(target_sets)} Prime Sets.", flush=True)
         
         results = []
-        # Limit for demo purposes or safety? 
-        # User wants a real tool. Let's do all of them but carefully.
-        # Maybe top 20 popular ones? Or all.
-        # Let's do first 10 for now to ensure speed, then user can expand.
-        # actually, the previous instruction was "verify" so full scan is better but slow.
-        # I'll process ALL but I will yield results or just return them.
-        # For the app, I'll process a subset to start with, or all if user insists.
-        # Let's do ALL but print progress.
         
         for i, item in enumerate(target_sets):
-            # Optional: skip vaulted? No, profit is profit.
             print(f"Scanning {i+1}/{len(target_sets)}: {item['slug']}...", flush=True)
             res = self.calculate_set_profit(item)
             if res and res['profit'] > 0:
                 results.append(res)
+                # Sort incrementally and call protocol
+                results.sort(key=lambda x: x['profit'], reverse=True)
+                if progress_callback:
+                    # Provide a copy to avoid threading concurrency issues during JSON serialization
+                    progress_callback(list(results))
                 
-        results.sort(key=lambda x: x['profit'], reverse=True)
         return results
