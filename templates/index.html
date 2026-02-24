@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en" class="dark">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -27,25 +28,30 @@
             color: #e0e0e0;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
+
         .wm-card {
             background-color: #1a1a1a;
             border: 1px solid #333;
             transition: transform 0.2s;
         }
+
         .wm-card:hover {
             transform: translateY(-2px);
             border-color: #666;
         }
+
         .platinum-icon {
             display: inline-block;
             width: 16px;
             height: 16px;
-            background-color: #d1d5db; /* Placeholder for plat icon color */
+            background-color: #d1d5db;
+            /* Placeholder for plat icon color */
             border-radius: 50%;
             margin-right: 4px;
         }
     </style>
 </head>
+
 <body class="min-h-screen p-8">
     <div class="max-w-7xl mx-auto">
         <header class="mb-8 flex justify-between items-center">
@@ -53,11 +59,28 @@
                 <h1 class="text-3xl font-bold text-white mb-2">Warframe Profit Calculator</h1>
                 <p class="text-gray-400">Find the best Prime Sets to build and sell.</p>
             </div>
-            <button onclick="startScan()" id="scanBtn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg transition-colors flex items-center">
+            <button onclick="startScan()" id="scanBtn"
+                class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg transition-colors flex items-center">
                 <span id="btnText">Start Scan</span>
-                <div id="spinner" class="hidden ml-2 w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                <div id="spinner"
+                    class="hidden ml-2 w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin">
+                </div>
             </button>
         </header>
+
+        <div class="mb-6 flex justify-between items-center bg-gray-900 p-4 rounded-lg border border-gray-700">
+            <span class="text-gray-400 font-medium" id="resultsCount">0 sets found</span>
+            <div class="flex items-center space-x-3">
+                <label for="sortSelect" class="text-gray-400 text-sm">Sort by:</label>
+                <select id="sortSelect" onchange="applySorting()"
+                    class="bg-gray-800 text-white text-sm rounded border border-gray-600 focus:ring-blue-500 focus:border-blue-500 block p-2">
+                    <option value="cost_asc">Craft Cost (Lowest first)</option>
+                    <option value="profit_desc">Profit (Highest first)</option>
+                    <option value="set_price_desc">Set Price (Highest first)</option>
+                    <option value="trades_asc">Trades (Lowest first)</option>
+                </select>
+            </div>
+        </div>
 
         <div id="results" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             <!-- Results will be injected here -->
@@ -66,25 +89,26 @@
 
     <script>
         let pollInterval;
+        let allResults = [];
 
         async function startScan() {
             const btn = document.getElementById('scanBtn');
             const spinner = document.getElementById('spinner');
             const btnText = document.getElementById('btnText');
-            
+
             btn.disabled = true;
             btnText.textContent = "Scanning...";
             spinner.classList.remove('hidden');
-            
+
             try {
                 const response = await fetch('/api/scan');
                 const data = await response.json();
                 console.log(data);
-                
+
                 // Start polling for results
                 if (pollInterval) clearInterval(pollInterval);
                 pollInterval = setInterval(checkResults, 2000);
-                
+
             } catch (error) {
                 console.error('Error starting scan:', error);
                 resetBtn();
@@ -95,9 +119,12 @@
             try {
                 const response = await fetch('/api/results');
                 const data = await response.json();
-                
-                renderResults(data.results);
-                
+
+                if (data.results) {
+                    allResults = data.results;
+                    applySorting();
+                }
+
                 if (data.status === 'idle') {
                     clearInterval(pollInterval);
                     resetBtn();
@@ -111,20 +138,52 @@
             const btn = document.getElementById('scanBtn');
             const spinner = document.getElementById('spinner');
             const btnText = document.getElementById('btnText');
-            
+
             btn.disabled = false;
             btnText.textContent = "Start Scan";
             spinner.classList.add('hidden');
         }
 
+        function applySorting() {
+            if (!allResults || allResults.length === 0) {
+                renderResults([]);
+                return;
+            }
+
+            const sortType = document.getElementById('sortSelect').value;
+
+            // Create a copy to sort
+            let sortedResults = [...allResults];
+
+            sortedResults.sort((a, b) => {
+                switch (sortType) {
+                    case 'cost_asc':
+                        return a.cost - b.cost;
+                    case 'profit_desc':
+                        return b.profit - a.profit;
+                    case 'set_price_desc':
+                        return b.set_price - a.set_price;
+                    case 'trades_asc':
+                        return a.trades - b.trades;
+                    default:
+                        return 0; // fallback
+                }
+            });
+
+            renderResults(sortedResults);
+        }
+
         function renderResults(results) {
             const container = document.getElementById('results');
-            
+            const resultsCount = document.getElementById('resultsCount');
+
+            resultsCount.textContent = `${results ? results.length : 0} sets found`;
+
             if (!results || results.length === 0) {
                 // Don't clear if we are just starting and have no results yet, 
                 // unless it's finished and really empty (handled by checkResults logic usually)
-                if(!container.hasChildNodes()) {
-                     container.innerHTML = '<p class="text-gray-500 col-span-full text-center">No results found yet. Start a scan!</p>';
+                if (!container.hasChildNodes()) {
+                    container.innerHTML = '<p class="text-gray-500 col-span-full text-center">No results found yet. Start a scan!</p>';
                 }
                 return;
             }
@@ -138,14 +197,18 @@
                         </div>
                     </div>
                     
-                    <div class="grid grid-cols-2 gap-4 mb-4 text-sm">
+                    <div class="grid grid-cols-3 gap-2 mb-4 text-sm text-center">
                         <div class="bg-gray-800 p-2 rounded">
-                            <span class="text-gray-500 block">Set Price</span>
+                            <span class="text-gray-500 block text-xs uppercase">Set Price</span>
                             <span class="text-white font-medium">${item.set_price} p</span>
                         </div>
                         <div class="bg-gray-800 p-2 rounded">
-                            <span class="text-gray-500 block">Craft Cost</span>
+                            <span class="text-gray-500 block text-xs uppercase">Craft Cost</span>
                             <span class="text-white font-medium">${item.cost} p</span>
+                        </div>
+                        <div class="bg-gray-800 p-2 rounded">
+                            <span class="text-gray-500 block text-xs uppercase">Trades</span>
+                            <span class="text-white font-medium">${item.trades}</span>
                         </div>
                     </div>
 
@@ -165,4 +228,5 @@
         }
     </script>
 </body>
+
 </html>
